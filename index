@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <title>Trinkgeld-Rechner</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root{
+      --bg:#0b1220; --card:#111827; --muted:#9ca3af; --text:#f9fafb; --line:#243044;
+      --accent:#22c55e; --danger:#ef4444;
+      --field:#0f172a; --field2:#0b1020;
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 10% 0%, #172554 0%, var(--bg) 55%);
+      color:var(--text);
+    }
+    .wrap{max-width:920px; margin:0 auto; padding:18px 14px 36px;}
+    header{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px;}
+    h1{margin:0; font-size:22px; letter-spacing:.2px}
+    .sub{color:var(--muted); font-size:13px; margin-top:4px}
+    .btn{
+      border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--text);
+      padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:600;
+    }
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border-color:rgba(34,197,94,.45); background:rgba(34,197,94,.12)}
+    .btn.danger{border-color:rgba(239,68,68,.45); background:rgba(239,68,68,.10)}
+    .grid{display:grid; grid-template-columns:1fr; gap:12px;}
+    @media (min-width:900px){ .grid{grid-template-columns: 1.15fr .85fr;} }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--line); border-radius:var(--radius); padding:14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .card h2{margin:0 0 10px; font-size:15px; color:#e5e7eb; letter-spacing:.2px}
+    .row{display:flex; align-items:center; gap:10px; padding:8px 0;}
+    .row + .row{border-top:1px dashed rgba(148,163,184,.18)}
+    label{color:#e5e7eb; font-size:13px; min-width:160px}
+    .field{
+      flex:1; display:flex; align-items:center; justify-content:flex-end; gap:8px;
+    }
+    input[type="text"], input[type="number"]{
+      width:100%; max-width:220px; padding:10px 12px; border-radius:12px;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid rgba(148,163,184,.22); color:var(--text);
+      outline:none;
+    }
+    input::placeholder{color:rgba(156,163,175,.6)}
+    .suffix{color:var(--muted); font-size:13px; min-width:22px; text-align:right}
+    .mini{max-width:120px !important}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.22);
+      background:rgba(255,255,255,.04); color:#e5e7eb; font-weight:700;
+    }
+    .kpi{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;}
+    .kpi .box{
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.35);
+      border-radius:14px; padding:10px 12px;
+    }
+    .kpi .t{color:var(--muted); font-size:12px}
+    .kpi .v{font-size:16px; font-weight:800; margin-top:4px}
+    .kpi .v.green{color:#86efac}
+    .kpi .v.yellow{color:#fde68a}
+    .controls{display:flex; flex-wrap:wrap; gap:10px; margin-top:10px}
+    table{width:100%; border-collapse:separate; border-spacing:0 8px; margin-top:10px}
+    th{color:var(--muted); font-size:12px; text-align:left; font-weight:700; padding:0 8px}
+    td{
+      background:rgba(15,23,42,.40); border:1px solid rgba(148,163,184,.18);
+      padding:10px 8px; font-size:14px;
+    }
+    td:first-child{border-radius:12px 0 0 12px}
+    td:last-child{border-radius:0 12px 12px 0; text-align:right; font-weight:800}
+    td:nth-child(2), td:nth-child(3){text-align:right}
+    .muted{color:var(--muted)}
+    .hint{color:var(--muted); font-size:12px; margin-top:8px; line-height:1.35}
+    .divider{height:1px; background:rgba(148,163,184,.18); margin:10px 0}
+    .small{font-size:12px}
+    .right{margin-left:auto}
+    .toast{
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:14px; background:rgba(17,24,39,.92); border:1px solid rgba(148,163,184,.22);
+      padding:10px 12px; border-radius:12px; color:#e5e7eb; display:none;
+      box-shadow: 0 12px 24px rgba(0,0,0,.35);
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Trinkgeld-Rechner</h1>
+      <div class="sub">Cent-genau, ohne Aufrunden. Küche-Anteil + faire Verteilung nach Stunden.</div>
+    </div>
+    <button class="btn danger" id="resetBtn">Reset</button>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Umsatz − Abgaben</h2>
+
+      <div class="row">
+        <label for="umsatz">Umsatz</label>
+        <div class="field">
+          <input id="umsatz" type="text" inputmode="decimal" placeholder="" />
+          <span class="suffix">€</span>
+        </div>
+      </div>
+
+      <div id="abgabenBox"></div>
+
+      <div class="controls">
+        <button class="btn" id="addAbgabeBtn">+ Abgabe</button>
+        <button class="btn" id="removeAbgabeBtn">− Abgabe</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <h2>Trinkgeld + Küche</h2>
+
+      <div class="row">
+        <label for="kitchenPct">Küche Anteil</label>
+        <div class="field">
+          <input id="kitchenPct" class="mini" type="text" inputmode="decimal" placeholder="20" />
+          <span class="suffix">%</span>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="box">
+          <div class="t">Rest = Trinkgeld (Umsatz − Abgaben)</div>
+          <div class="v green" id="kpiTotalTips">€0,00</div>
+        </div>
+        <div class="box">
+          <div class="t">Küche Trinkgeld</div>
+          <div class="v yellow" id="kpiKitchen">€0,00</div>
+        </div>
+        <div class="box">
+          <div class="t">Pool Mitarbeiter</div>
+          <div class="v" id="kpiPool">€0,00</div>
+        </div>
+        <div class="box">
+          <div class="t">Trinkgeld pro Stunde (Pool)</div>
+          <div class="v" id="kpiRate">€0,00 /h</div>
+        </div>
+      </div>
+
+      <div class="hint">
+        Hinweis: Verteilung erfolgt in <b>Cent</b> und pro Person wird immer <b>abgerundet</b>.
+        Übrige Cent werden als „Nicht verteilt“ angezeigt (keine Aufrundung).
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Mitarbeiter</h2>
+      <div class="muted small">Name + Stunden (bis 10)</div>
+
+      <div id="workersBox" style="margin-top:10px"></div>
+
+      <div class="controls">
+        <button class="btn" id="addWorkerBtn">+ Mitarbeiter</button>
+        <button class="btn" id="removeWorkerBtn">− Mitarbeiter</button>
+        <button class="btn primary right" id="copyBtn">Export (WhatsApp)</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <h2>Auszahlung (Tabelle)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th style="text-align:right">Std</th>
+            <th style="text-align:right">Trinkgeld</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+
+      <div class="row" style="border-top:1px dashed rgba(148,163,184,.18); padding-top:12px">
+        <span class="pill">Summe</span>
+        <span class="right" id="sumPaid" style="font-weight:900">€0,00</span>
+      </div>
+      <div class="row" style="padding-top:0">
+        <span class="muted">Nicht verteilt (Abrunden)</span>
+        <span class="right muted" id="sumRemaining">€0,00</span>
+      </div>
+
+      <div class="hint">
+        Installation iPhone/iPad: Safari → Teilen → <b>Zum Home-Bildschirm</b>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Kopiert ✅</div>
+
+<script>
+  // ---------- Config ----------
+  const MAX_ABGABEN = 5;
+  const MIN_ABGABEN = 2;
+  const MAX_WORKERS = 10;
+  const MIN_WORKERS = 1;
+
+  // ---------- State ----------
+  let abgaben = [
+    { title: "Abgabe 1", amount: "" },
+    { title: "Abgabe 2", amount: "" },
+  ];
+
+  let workers = [
+    { name: "", hours: "" },
+  ];
+
+  // ---------- Utils ----------
+  const parseDec = (s) => {
+    if (!s) return 0;
+    const t = String(s).trim();
+    if (!t) return 0;
+    const norm = t.replace(",", ".");
+    const v = Number(norm);
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
+
+  // Money formatting (de-DE)
+  const fmtMoney = (euros) =>
+    new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(euros);
+
+  const fmtNum2 = (x) =>
+    new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(x);
+
+  const floorCents = (euros) => Math.max(0, Math.floor(parseDec(euros) * 100 + 1e-9)); // no round up
+
+  const showToast = (msg) => {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    setTimeout(() => (t.style.display = "none"), 1200);
+  };
+
+  // ---------- Renderers ----------
+  function renderAbgaben() {
+    const box = document.getElementById("abgabenBox");
+    box.innerHTML = "";
+
+    abgaben.forEach((a, idx) => {
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const left = document.createElement("label");
+      left.textContent = a.title || `Abgabe ${idx+1}`;
+      left.style.minWidth = "160px";
+
+      const field = document.createElement("div");
+      field.className = "field";
+
+      const titleInput = document.createElement("input");
+      titleInput.type = "text";
+      titleInput.value = a.title;
+      titleInput.placeholder = "Abgabe (z.B. Lieferant)";
+      titleInput.style.maxWidth = "260px";
+      titleInput.addEventListener("input", (e) => {
+        abgaben[idx].title = e.target.value;
+        // update label live
+        left.textContent = e.target.value.trim() || `Abgabe ${idx+1}`;
+      });
+
+      const amountInput = document.createElement("input");
+      amountInput.type = "text";
+      amountInput.inputMode = "decimal";
+      amountInput.value = a.amount;
+      amountInput.placeholder = "";
+      amountInput.className = "mini";
+      amountInput.addEventListener("input", (e) => {
+        abgaben[idx].amount = e.target.value;
+        recalc();
+      });
+
+      const euro = document.createElement("span");
+      euro.className = "suffix";
+      euro.textContent = "€";
+
+      field.appendChild(titleInput);
+      field.appendChild(amountInput);
+      field.appendChild(euro);
+
+      row.appendChild(left);
+      row.appendChild(field);
+      box.appendChild(row);
+    });
+  }
+
+  function renderWorkers() {
+    const box = document.getElementById("workersBox");
+    box.innerHTML = "";
+
+    workers.forEach((w, idx) => {
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const nameLabel = document.createElement("label");
+      nameLabel.textContent = "Name";
+      nameLabel.style.minWidth = "60px";
+
+      const field = document.createElement("div");
+      field.className = "field";
+      field.style.justifyContent = "flex-end";
+
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.value = w.name;
+      nameInput.placeholder = idx === 0 ? "z.B. Pedro" : "";
+      nameInput.style.maxWidth = "260px";
+      nameInput.addEventListener("input", (e) => {
+        workers[idx].name = e.target.value;
+        recalc();
+      });
+
+      const hoursInput = document.createElement("input");
+      hoursInput.type = "text";
+      hoursInput.inputMode = "decimal";
+      hoursInput.value = w.hours;
+      hoursInput.placeholder = "Std.";
+      hoursInput.className = "mini";
+      hoursInput.addEventListener("input", (e) => {
+        workers[idx].hours = e.target.value;
+        recalc();
+      });
+
+      const h = document.createElement("span");
+      h.className = "suffix";
+      h.textContent = "h";
+
+      field.appendChild(nameInput);
+      field.appendChild(hoursInput);
+      field.appendChild(h);
+
+      row.appendChild(nameLabel);
+      row.appendChild(field);
+      box.appendChild(row);
+    });
+  }
+
+  function renderTable(rows, paidCents, remCents) {
+    const body = document.getElementById("tableBody");
+    body.innerHTML = "";
+
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.textContent = r.name;
+
+      const tdH = document.createElement("td");
+      tdH.textContent = fmtNum2(r.hours);
+
+      const tdTip = document.createElement("td");
+      tdTip.textContent = fmtMoney(r.cents / 100);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdH);
+      tr.appendChild(tdTip);
+      body.appendChild(tr);
+    });
+
+    document.getElementById("sumPaid").textContent = fmtMoney(paidCents / 100);
+    document.getElementById("sumRemaining").textContent = fmtMoney(remCents / 100);
+  }
+
+  // ---------- Calculation ----------
+  function recalc() {
+    const umsatz = parseDec(document.getElementById("umsatz").value);
+    const sumAbg = abgaben.reduce((s, a) => s + Math.max(0, parseDec(a.amount)), 0);
+    const totalTipEuro = Math.max(0, umsatz - sumAbg);
+
+    const totalTipCents = floorCents(totalTipEuro);
+
+    const pct = clamp(parseDec(document.getElementById("kitchenPct").value || "20"), 0, 100);
+    const kitchenCents = Math.floor(totalTipCents * (pct / 100));
+
+    const poolCents = Math.max(0, totalTipCents - kitchenCents);
+
+    const parsedWorkers = workers.map(w => ({
+      name: (w.name || "").trim() || "Ohne Name",
+      hours: Math.max(0, parseDec(w.hours))
+    }));
+
+    const totalHours = parsedWorkers.reduce((s, w) => s + w.hours, 0);
+    const rateEuroPerHour = totalHours > 0 ? (poolCents / 100) / totalHours : 0;
+
+    let payoutRows = parsedWorkers.map(w => ({
+      name: w.name,
+      hours: w.hours,
+      cents: 0
+    }));
+
+    if (poolCents > 0 && totalHours > 0) {
+      payoutRows = parsedWorkers.map(w => {
+        const rawCents = poolCents * (w.hours / totalHours);
+        return { name: w.name, hours: w.hours, cents: Math.floor(rawCents) };
+      });
+    }
+
+    const paidCents = payoutRows.reduce((s, r) => s + r.cents, 0);
+    const remCents = Math.max(0, poolCents - paidCents);
+
+    // KPIs
+    document.getElementById("kpiTotalTips").textContent = fmtMoney(totalTipCents / 100);
+    document.getElementById("kpiKitchen").textContent   = fmtMoney(kitchenCents / 100);
+    document.getElementById("kpiPool").textContent      = fmtMoney(poolCents / 100);
+    document.getElementById("kpiRate").textContent      = fmtMoney(rateEuroPerHour) + " /h";
+
+    // Table
+    renderTable(payoutRows, paidCents, remCents);
+  }
+
+  // ---------- Export ----------
+  async function exportText() {
+    const umsatz = parseDec(document.getElementById("umsatz").value);
+    const sumAbg = abgaben.reduce((s, a) => s + Math.max(0, parseDec(a.amount)), 0);
+    const totalTipEuro = Math.max(0, umsatz - sumAbg);
+    const totalTipCents = floorCents(totalTipEuro);
+
+    const pct = clamp(parseDec(document.getElementById("kitchenPct").value || "20"), 0, 100);
+    const kitchenCents = Math.floor(totalTipCents * (pct / 100));
+    const poolCents = Math.max(0, totalTipCents - kitchenCents);
+
+    const parsedWorkers = workers.map(w => ({
+      name: (w.name || "").trim() || "Ohne Name",
+      hours: Math.max(0, parseDec(w.hours))
+    }));
+    const totalHours = parsedWorkers.reduce((s, w) => s + w.hours, 0);
+
+    let rows = parsedWorkers.map(w => ({...w, cents: 0}));
+    if (poolCents > 0 && totalHours > 0) {
+      rows = parsedWorkers.map(w => ({
+        ...w,
+        cents: Math.floor(poolCents * (w.hours / totalHours))
+      }));
+    }
+    const paid = rows.reduce((s, r) => s + r.cents, 0);
+    const rem = Math.max(0, poolCents - paid);
+
+    const lines = [];
+    lines.push("Trinkgeld-Abrechnung");
+    lines.push(`Umsatz: ${fmtMoney(umsatz)}`);
+    lines.push(`Abgaben: ${fmtMoney(sumAbg)}`);
+    lines.push(`Rest=Trinkgeld: ${fmtMoney(totalTipCents/100)}`);
+    lines.push(`Küche (${pct}%): ${fmtMoney(kitchenCents/100)}`);
+    lines.push(`Pool Mitarbeiter: ${fmtMoney(poolCents/100)}`);
+    lines.push(`Gesamtstunden: ${fmtNum2(totalHours)} h`);
+    lines.push("");
+    lines.push("Name | Std | Trinkgeld");
+    rows.forEach(r => {
+      lines.push(`${r.name} | ${fmtNum2(r.hours)} | ${fmtMoney(r.cents/100)}`);
+    });
+    lines.push("");
+    lines.push(`Summe (Mitarbeiter): ${fmtMoney(paid/100)}`);
+    if (rem > 0) lines.push(`Nicht verteilt (Abrunden): ${fmtMoney(rem/100)}`);
+
+    const text = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Export kopiert ✅");
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      showToast("Export kopiert ✅");
+    }
+  }
+
+  // ---------- Events ----------
+  document.getElementById("umsatz").addEventListener("input", recalc);
+  document.getElementById("kitchenPct").addEventListener("input", recalc);
+
+  document.getElementById("addAbgabeBtn").addEventListener("click", () => {
+    if (abgaben.length >= MAX_ABGABEN) return;
+    abgaben.push({ title: `Abgabe ${abgaben.length+1}`, amount: "" });
+    renderAbgaben();
+    recalc();
+  });
+
+  document.getElementById("removeAbgabeBtn").addEventListener("click", () => {
+    if (abgaben.length <= MIN_ABGABEN) return;
+    abgaben.pop();
+    renderAbgaben();
+    recalc();
+  });
+
+  document.getElementById("addWorkerBtn").addEventListener("click", () => {
+    if (workers.length >= MAX_WORKERS) return;
+    workers.push({ name: "", hours: "" });
+    renderWorkers();
+    recalc();
+  });
+
+  document.getElementById("removeWorkerBtn").addEventListener("click", () => {
+    if (workers.length <= MIN_WORKERS) return;
+    workers.pop();
+    renderWorkers();
+    recalc();
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", exportText);
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    document.getElementById("umsatz").value = "";
+    document.getElementById("kitchenPct").value = "20";
+    abgaben = [
+      { title:"Abgabe 1", amount:"" },
+      { title:"Abgabe 2", amount:"" },
+    ];
+    workers = [{ name:"", hours:"" }];
+    renderAbgaben();
+    renderWorkers();
+    recalc();
+    showToast("Reset ✅");
+  });
+
+  // ---------- PWA service worker ----------
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  }
+
+  // init
+  renderAbgaben();
+  renderWorkers();
+  recalc();
+</script>
+</body>
+</html>
