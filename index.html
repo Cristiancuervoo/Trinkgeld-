@@ -2,31 +2,46 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
+
+  <!-- Force dark rendering on iOS/PWA -->
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
+
   <!-- Fix iOS zoom/jump on input focus -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <meta name="color-scheme" content="dark">
-<meta name="supported-color-schemes" content="dark">
+  <meta name="theme-color" content="#0b1220" />
+
   <title>Trinkgeld-Rechner</title>
   <link rel="manifest" href="manifest.json" />
 
   <style>
     :root{
-      html { background: #0b1220; color-scheme: dark; }
-body { background: #0b1220 !important; }
-      --bg:#0b1220; --card:#111827; --muted:#9ca3af; --text:#f9fafb; --line:#243044;
-      --accent:#22c55e; --danger:#ef4444;
-      --field:#0f172a; --field2:#0b1020;
+      --bg:#0b1220;
+      --card:#111827;
+      --muted:#9ca3af;
+      --text:#f9fafb;
+      --line:#243044;
+      --accent:#22c55e;
+      --danger:#ef4444;
       --radius:16px;
     }
 
-    *{box-sizing:border-box}
-    html, body { height:100%; }
+    *{ box-sizing:border-box; }
+
+    /* ✅ HARD-FORCE dark background everywhere */
+    html, body{
+      height:100%;
+      margin:0;
+      background: var(--bg) !important;
+      color: var(--text) !important;
+      color-scheme: dark;
+    }
+
     body{
-      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: linear-gradient(180deg, #0b1220 0%, 0b1220 100%);
-      color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       -webkit-overflow-scrolling: touch;
       -webkit-text-size-adjust: 100%;
+      overflow-x:hidden;
     }
 
     .wrap{max-width:920px; margin:0 auto; padding:18px 14px 36px;}
@@ -35,8 +50,13 @@ body { background: #0b1220 !important; }
     .sub{color:var(--muted); font-size:13px; margin-top:4px}
 
     .btn{
-      border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--text);
-      padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:600;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
     }
     .btn:active{transform:translateY(1px)}
     .btn.primary{border-color:rgba(34,197,94,.45); background:rgba(34,197,94,.12)}
@@ -46,9 +66,14 @@ body { background: #0b1220 !important; }
     @media (min-width:900px){ .grid{grid-template-columns: 1.15fr .85fr;} }
 
     .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border:1px solid var(--line); border-radius:var(--radius); padding:14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      /* Use dark solid base so it never looks “washed out” on light backgrounds */
+      background: rgba(17,24,39,.92);
+      border:1px solid rgba(36,48,68,.95);
+      border-radius:var(--radius);
+      padding:14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
     .card h2{margin:0 0 10px; font-size:15px; color:#e5e7eb; letter-spacing:.2px}
 
@@ -57,39 +82,47 @@ body { background: #0b1220 !important; }
     label{color:#e5e7eb; font-size:13px; min-width:160px}
 
     .field{
-      flex:1; display:flex; align-items:center; justify-content:flex-end; gap:8px;
+      flex:1;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
     }
 
-    /* ✅ iOS FIX: font-size 16px prevents Safari auto-zoom on focus */
+    /* ✅ iOS FIX: >=16px prevents Safari zoom */
     input[type="text"], input[type="number"]{
-      width:100%; max-width:220px;
+      width:100%;
+      max-width:220px;
       padding:10px 12px;
       border-radius:12px;
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.25);
       color:var(--text);
       outline:none;
 
-      font-size:16px;            /* IMPORTANT */
+      font-size:16px;
       line-height:1.2;
       -webkit-text-size-adjust: 100%;
     }
-    input::placeholder{color:rgba(156,163,175,.6)}
-
+    input::placeholder{color:rgba(156,163,175,.65)}
     .suffix{color:var(--muted); font-size:13px; min-width:22px; text-align:right}
     .mini{max-width:120px !important}
 
     .pill{
       display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px; border-radius:999px; border:1px solid rgba(148,163,184,.22);
-      background:rgba(255,255,255,.04); color:#e5e7eb; font-weight:700;
+      padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(255,255,255,.04);
+      color:#e5e7eb;
+      font-weight:700;
     }
 
     .kpi{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;}
     .kpi .box{
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(15,23,42,.35);
-      border-radius:14px; padding:10px 12px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.40);
+      border-radius:14px;
+      padding:10px 12px;
     }
     .kpi .t{color:var(--muted); font-size:12px}
     .kpi .v{font-size:16px; font-weight:800; margin-top:4px}
@@ -101,8 +134,11 @@ body { background: #0b1220 !important; }
     table{width:100%; border-collapse:separate; border-spacing:0 8px; margin-top:10px}
     th{color:var(--muted); font-size:12px; text-align:left; font-weight:700; padding:0 8px}
     td{
-      background:rgba(15,23,42,.40); border:1px solid rgba(148,163,184,.18);
-      padding:10px 8px; font-size:14px;
+      background: rgba(2,6,23,.45);
+      border:1px solid rgba(148,163,184,.16);
+      padding:10px 8px;
+      font-size:14px;
+      color: var(--text);
     }
     td:first-child{border-radius:12px 0 0 12px}
     td:last-child{border-radius:0 12px 12px 0; text-align:right; font-weight:800}
@@ -115,9 +151,16 @@ body { background: #0b1220 !important; }
     .right{margin-left:auto}
 
     .toast{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:14px; background:rgba(17,24,39,.92); border:1px solid rgba(148,163,184,.22);
-      padding:10px 12px; border-radius:12px; color:#e5e7eb; display:none;
+      position:fixed;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:14px;
+      background:rgba(17,24,39,.92);
+      border:1px solid rgba(148,163,184,.22);
+      padding:10px 12px;
+      border-radius:12px;
+      color:#e5e7eb;
+      display:none;
       box-shadow: 0 12px 24px rgba(0,0,0,.35);
       z-index:9999;
     }
@@ -235,13 +278,11 @@ body { background: #0b1220 !important; }
 <div class="toast" id="toast">Kopiert ✅</div>
 
 <script>
-  // ---------- Config ----------
   const MAX_ABGABEN = 5;
   const MIN_ABGABEN = 2;
   const MAX_WORKERS = 10;
   const MIN_WORKERS = 1;
 
-  // ---------- State ----------
   let abgaben = [
     { title: "Abgabe 1", amount: "" },
     { title: "Abgabe 2", amount: "" },
@@ -251,7 +292,6 @@ body { background: #0b1220 !important; }
     { name: "", hours: "" },
   ];
 
-  // ---------- Utils ----------
   const parseDec = (s) => {
     if (!s) return 0;
     const t = String(s).trim();
@@ -263,14 +303,13 @@ body { background: #0b1220 !important; }
 
   const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 
-  // Money formatting (de-DE)
   const fmtMoney = (euros) =>
     new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(euros);
 
   const fmtNum2 = (x) =>
     new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(x);
 
-  const floorCents = (euros) => Math.max(0, Math.floor(parseDec(euros) * 100 + 1e-9)); // no round up
+  const floorCents = (euros) => Math.max(0, Math.floor(parseDec(euros) * 100 + 1e-9));
 
   const showToast = (msg) => {
     const t = document.getElementById("toast");
@@ -279,7 +318,6 @@ body { background: #0b1220 !important; }
     setTimeout(() => (t.style.display = "none"), 1200);
   };
 
-  // ---------- Renderers ----------
   function renderAbgaben() {
     const box = document.getElementById("abgabenBox");
     box.innerHTML = "";
@@ -407,7 +445,6 @@ body { background: #0b1220 !important; }
     document.getElementById("sumRemaining").textContent = fmtMoney(remCents / 100);
   }
 
-  // ---------- Calculation ----------
   function recalc() {
     const umsatz = parseDec(document.getElementById("umsatz").value);
     const sumAbg = abgaben.reduce((s, a) => s + Math.max(0, parseDec(a.amount)), 0);
@@ -417,7 +454,6 @@ body { background: #0b1220 !important; }
 
     const pct = clamp(parseDec(document.getElementById("kitchenPct").value || "20"), 0, 100);
     const kitchenCents = Math.floor(totalTipCents * (pct / 100));
-
     const poolCents = Math.max(0, totalTipCents - kitchenCents);
 
     const parsedWorkers = workers.map(w => ({
@@ -452,7 +488,6 @@ body { background: #0b1220 !important; }
     renderTable(payoutRows, paidCents, remCents);
   }
 
-  // ---------- Export ----------
   async function exportText() {
     const umsatz = parseDec(document.getElementById("umsatz").value);
     const sumAbg = abgaben.reduce((s, a) => s + Math.max(0, parseDec(a.amount)), 0);
@@ -476,6 +511,7 @@ body { background: #0b1220 !important; }
         cents: Math.floor(poolCents * (w.hours / totalHours))
       }));
     }
+
     const paid = rows.reduce((s, r) => s + r.cents, 0);
     const rem = Math.max(0, poolCents - paid);
 
@@ -489,9 +525,7 @@ body { background: #0b1220 !important; }
     lines.push(`Gesamtstunden: ${fmtNum2(totalHours)} h`);
     lines.push("");
     lines.push("Name | Std | Trinkgeld");
-    rows.forEach(r => {
-      lines.push(`${r.name} | ${fmtNum2(r.hours)} | ${fmtMoney(r.cents/100)}`);
-    });
+    rows.forEach(r => lines.push(`${r.name} | ${fmtNum2(r.hours)} | ${fmtMoney(r.cents/100)}`));
     lines.push("");
     lines.push(`Summe (Mitarbeiter): ${fmtMoney(paid/100)}`);
     if (rem > 0) lines.push(`Nicht verteilt (Abrunden): ${fmtMoney(rem/100)}`);
@@ -511,7 +545,6 @@ body { background: #0b1220 !important; }
     }
   }
 
-  // ---------- Events ----------
   document.getElementById("umsatz").addEventListener("input", recalc);
   document.getElementById("kitchenPct").addEventListener("input", recalc);
 
@@ -559,12 +592,10 @@ body { background: #0b1220 !important; }
     showToast("Reset ✅");
   });
 
-  // ---------- PWA service worker ----------
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
   }
 
-  // init
   renderAbgaben();
   renderWorkers();
   recalc();
