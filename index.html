@@ -187,27 +187,45 @@
     .drinkCard{
       background: rgba(2,6,23,.45);
       border:1px solid rgba(148,163,184,.16);
-      border-radius:14px;
-      padding:12px;
-      margin-bottom:10px;
+      border-radius:16px;
+      padding:14px;
+      margin-bottom:12px;
       cursor:pointer;
     }
-    .drinkName{font-size:15px; font-weight:700; margin-bottom:10px; color:#e5e7eb}
-    .drinkControls{display:flex; gap:10px; align-items:center;}
 
-    /* Bigger touch target + font so the qty field is fast to hit at night */
-    .qtyInput{
-      max-width:84px !important;
-      text-align:center;
-      font-size:20px !important;
-      font-weight:800;
+    /* Bank-transfer layout: small label on top, huge value in the middle,
+       smaller choice buttons at the bottom */
+    .drinkName{
+      font-size:13px;
+      font-weight:700;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.4px;
+      margin-bottom:8px;
     }
 
-    .unitToggle{display:flex; gap:6px; flex:1;}
+    .qtyInputBig{
+      display:block;
+      width:100%;
+      text-align:center;
+      font-size:42px;
+      font-weight:800;
+      padding:14px 8px;
+      border-radius:14px;
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.25);
+      color:var(--text);
+      outline:none;
+      margin-bottom:10px;
+      -webkit-text-size-adjust: 100%;
+    }
+    .qtyInputBig::placeholder{color:rgba(156,163,175,.45)}
+
+    .unitToggle{display:flex; gap:8px;}
     .unitBtn{
       flex:1;
-      min-height:46px;
-      border-radius:12px;
+      min-height:40px;
+      border-radius:10px;
       border:1px solid rgba(148,163,184,.25);
       background:rgba(255,255,255,.04);
       color:var(--muted);
@@ -217,8 +235,23 @@
     }
     .unitBtn.active{background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.45); color:#86efac}
 
-    .summaryRow{display:flex; justify-content:space-between; padding:8px 0;}
+    /* Summary: tap the circle once the bottles/crates are upstairs to clear the item */
+    .summaryRow{display:flex; align-items:center; gap:10px; padding:8px 0;}
     .summaryRow + .summaryRow{border-top:1px dashed rgba(148,163,184,.18)}
+    .summaryName{flex:1}
+    .summaryAmount{font-weight:800}
+
+    .checkCircle{
+      width:28px;
+      height:28px;
+      min-width:28px;
+      border-radius:50%;
+      border:2px solid rgba(148,163,184,.4);
+      background:transparent;
+      cursor:pointer;
+      padding:0;
+    }
+    .checkCircle:active{background:rgba(34,197,94,.3); border-color:#22c55e}
   </style>
 </head>
 
@@ -705,9 +738,9 @@
     const box = document.getElementById("kellerSummary");
     box.innerHTML = "";
 
-    const missing = kellerDrinks.filter((d) => Number(d.qty) > 0);
+    const missingCount = kellerDrinks.filter((d) => Number(d.qty) > 0).length;
 
-    if (missing.length === 0) {
+    if (missingCount === 0) {
       const empty = document.createElement("div");
       empty.className = "muted small";
       empty.textContent = "Keine fehlenden Getränke eingetragen.";
@@ -715,17 +748,31 @@
       return;
     }
 
-    missing.forEach((d) => {
+    kellerDrinks.forEach((d, idx) => {
+      if (Number(d.qty) <= 0) return;
+
       const row = document.createElement("div");
       row.className = "summaryRow";
 
+      // Tap once an item is upstairs to clear it from the small to-do list
+      const check = document.createElement("button");
+      check.type = "button";
+      check.className = "checkCircle";
+      check.title = "Erledigt";
+      check.addEventListener("click", () => {
+        kellerDrinks[idx].qty = "";
+        renderKellerList();
+      });
+
       const name = document.createElement("span");
+      name.className = "summaryName";
       name.textContent = d.name;
 
       const amount = document.createElement("span");
-      amount.style.fontWeight = "800";
+      amount.className = "summaryAmount";
       amount.textContent = `${d.qty} ${d.unit}`;
 
+      row.appendChild(check);
       row.appendChild(name);
       row.appendChild(amount);
       box.appendChild(row);
@@ -744,15 +791,13 @@
       name.className = "drinkName";
       name.textContent = drink.name;
 
-      const controls = document.createElement("div");
-      controls.className = "drinkControls";
-
+      // Big, centered amount — like the amount field in a bank transfer app
       const qtyInput = document.createElement("input");
       qtyInput.type = "text";
       qtyInput.inputMode = "numeric";
       qtyInput.pattern = "[0-9]*";
       qtyInput.placeholder = "0";
-      qtyInput.className = "qtyInput";
+      qtyInput.className = "qtyInputBig";
       qtyInput.value = drink.qty;
       qtyInput.addEventListener("input", (e) => {
         e.target.value = e.target.value.replace(/[^0-9]/g, "");
@@ -779,10 +824,9 @@
         unitToggle.appendChild(btn);
       });
 
-      controls.appendChild(qtyInput);
-      controls.appendChild(unitToggle);
       card.appendChild(name);
-      card.appendChild(controls);
+      card.appendChild(qtyInput);
+      card.appendChild(unitToggle);
 
       // Tapping anywhere on the card focuses the qty field, opening the numeric keyboard
       card.addEventListener("click", (e) => {
