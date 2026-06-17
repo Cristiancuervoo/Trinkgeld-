@@ -1,4 +1,4 @@
-const CACHE = "trinkgeld-pwa-v3";
+const CACHE = "trinkgeld-pwa-v4";
 const ASSETS = [
   "./",
   "./index.html",
