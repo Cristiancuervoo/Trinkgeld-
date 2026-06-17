@@ -184,6 +184,18 @@
     .view.active{display:block;}
 
     /* ---------- Kellerliste ---------- */
+
+    /* Flashcard-style browsing: one drink at a time, swipe or use the nav buttons */
+    .flashHeader{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px;}
+    .progressBar{height:6px; background:rgba(148,163,184,.15); border-radius:999px; overflow:hidden; margin-bottom:14px;}
+    .progressFill{height:100%; background:#22c55e; transition:width .2s ease;}
+
+    #kellerStage{position:relative; min-height:1px;}
+
+    .flashNav{display:flex; gap:10px; margin-top:14px;}
+    .flashNav .btn{flex:1; min-height:50px; font-size:15px;}
+    .flashNav .btn:disabled{opacity:.35; cursor:default;}
+
     .drinkCard{
       background: rgba(2,6,23,.45);
       border:1px solid rgba(148,163,184,.16);
@@ -191,6 +203,8 @@
       padding:14px;
       margin-bottom:12px;
       cursor:pointer;
+      touch-action: pan-y;
+      user-select:none;
     }
 
     /* Bank-transfer layout: small label on top, huge value in the middle,
@@ -218,6 +232,7 @@
       outline:none;
       margin-bottom:10px;
       -webkit-text-size-adjust: 100%;
+      user-select:text;
     }
     .qtyInputBig::placeholder{color:rgba(156,163,175,.45)}
 
@@ -389,8 +404,18 @@
     </header>
 
     <div class="card">
-      <h2>Getränke</h2>
-      <div id="kellerList"></div>
+      <div class="flashHeader">
+        <h2 style="margin:0">Getränke</h2>
+        <span class="muted small" id="kellerProgressText">1 / 1</span>
+      </div>
+      <div class="progressBar"><div class="progressFill" id="kellerProgressFill"></div></div>
+
+      <div id="kellerStage"></div>
+
+      <div class="flashNav">
+        <button class="btn" id="kellerPrevBtn">‹ Zurück</button>
+        <button class="btn primary" id="kellerNextBtn">Weiter ›</button>
+      </div>
     </div>
 
     <div class="card" style="margin-top:12px">
@@ -810,61 +835,134 @@
     });
   }
 
-  function renderKellerList() {
-    const box = document.getElementById("kellerList");
-    box.innerHTML = "";
+  let kellerIndex = 0;
 
-    kellerDrinks.forEach((drink, idx) => {
-      const card = document.createElement("div");
-      card.className = "drinkCard";
+  // Lets the current card be dragged horizontally; past a threshold it flies
+  // off and triggers the same prev/next navigation as the buttons.
+  function attachSwipe(card, qtyInput, onPrev, onNext) {
+    let dragging = false;
+    let startX = 0;
+    let dx = 0;
 
-      const name = document.createElement("div");
-      name.className = "drinkName";
-      name.textContent = drink.name;
+    const pointerX = (e) => (e.touches ? e.touches[0].clientX : e.clientX);
 
-      // Big, centered amount — like the amount field in a bank transfer app
-      const qtyInput = document.createElement("input");
-      qtyInput.type = "text";
-      qtyInput.inputMode = "numeric";
-      qtyInput.pattern = "[0-9]*";
-      qtyInput.placeholder = "0";
-      qtyInput.className = "qtyInputBig";
-      qtyInput.value = drink.qty;
-      qtyInput.addEventListener("input", (e) => {
-        e.target.value = e.target.value.replace(/[^0-9]/g, "");
-        kellerDrinks[idx].qty = e.target.value;
-      });
-      // Selecting existing text lets the user just type over it
-      qtyInput.addEventListener("focus", (e) => e.target.select());
+    const onDown = (e) => {
+      if (e.target === qtyInput || e.target.closest(".unitBtn")) return;
+      dragging = true;
+      startX = pointerX(e);
+      card.style.transition = "none";
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      dx = pointerX(e) - startX;
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      card.style.transition = "transform .22s ease, opacity .22s ease";
 
-      const unitToggle = document.createElement("div");
-      unitToggle.className = "unitToggle";
+      const threshold = 80;
+      if (dx > threshold) {
+        card.style.transform = "translateX(600px) rotate(15deg)";
+        card.style.opacity = "0";
+        setTimeout(onPrev, 160);
+      } else if (dx < -threshold) {
+        card.style.transform = "translateX(-600px) rotate(-15deg)";
+        card.style.opacity = "0";
+        setTimeout(onNext, 160);
+      } else {
+        card.style.transform = "translateX(0) rotate(0)";
+      }
+      dx = 0;
+    };
 
-      UNITS.forEach((unit) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "unitBtn" + (drink.unit === unit ? " active" : "");
-        btn.textContent = unit;
-        btn.addEventListener("click", () => {
-          kellerDrinks[idx].unit = unit;
-          unitToggle.querySelectorAll(".unitBtn").forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-        });
-        unitToggle.appendChild(btn);
-      });
+    card.addEventListener("pointerdown", onDown);
+    card.addEventListener("pointermove", onMove);
+    card.addEventListener("pointerup", onUp);
+    card.addEventListener("pointercancel", onUp);
+  }
 
-      card.appendChild(name);
-      card.appendChild(qtyInput);
-      card.appendChild(unitToggle);
+  function gotoKellerIndex(newIndex) {
+    kellerIndex = Math.max(0, Math.min(kellerDrinks.length - 1, newIndex));
+    renderKellerStage();
+  }
 
-      // Tapping anywhere on the card focuses the qty field, opening the numeric keyboard
-      card.addEventListener("click", (e) => {
-        if (e.target === qtyInput || e.target.closest(".unitBtn")) return;
-        qtyInput.focus();
-      });
+  // Shows one drink at a time, Karteikarten-style: swipe or use Zurück/Weiter
+  function renderKellerStage() {
+    const stage = document.getElementById("kellerStage");
+    stage.innerHTML = "";
 
-      box.appendChild(card);
+    const idx = kellerIndex;
+    const drink = kellerDrinks[idx];
+
+    const card = document.createElement("div");
+    card.className = "drinkCard";
+
+    const name = document.createElement("div");
+    name.className = "drinkName";
+    name.textContent = drink.name;
+
+    // Big, centered amount — like the amount field in a bank transfer app
+    const qtyInput = document.createElement("input");
+    qtyInput.type = "text";
+    qtyInput.inputMode = "numeric";
+    qtyInput.pattern = "[0-9]*";
+    qtyInput.placeholder = "0";
+    qtyInput.className = "qtyInputBig";
+    qtyInput.value = drink.qty;
+    qtyInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/[^0-9]/g, "");
+      kellerDrinks[idx].qty = e.target.value;
     });
+    // Selecting existing text lets the user just type over it
+    qtyInput.addEventListener("focus", (e) => e.target.select());
+
+    const unitToggle = document.createElement("div");
+    unitToggle.className = "unitToggle";
+
+    UNITS.forEach((unit) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "unitBtn" + (drink.unit === unit ? " active" : "");
+      btn.textContent = unit;
+      btn.addEventListener("click", () => {
+        kellerDrinks[idx].unit = unit;
+        unitToggle.querySelectorAll(".unitBtn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+      unitToggle.appendChild(btn);
+    });
+
+    card.appendChild(name);
+    card.appendChild(qtyInput);
+    card.appendChild(unitToggle);
+
+    // Tapping anywhere on the card focuses the qty field, opening the numeric keyboard
+    card.addEventListener("click", (e) => {
+      if (e.target === qtyInput || e.target.closest(".unitBtn")) return;
+      qtyInput.focus();
+    });
+
+    attachSwipe(
+      card,
+      qtyInput,
+      () => gotoKellerIndex(idx - 1),
+      () => gotoKellerIndex(idx + 1)
+    );
+
+    stage.appendChild(card);
+    // Only steal focus (and pop the keyboard) if this tab is actually visible
+    if (document.getElementById("view-keller").classList.contains("active")) {
+      qtyInput.focus();
+    }
+
+    const isLast = idx === kellerDrinks.length - 1;
+    document.getElementById("kellerProgressText").textContent = `${idx + 1} / ${kellerDrinks.length}`;
+    document.getElementById("kellerProgressFill").style.width =
+      `${((idx + 1) / kellerDrinks.length) * 100}%`;
+    document.getElementById("kellerPrevBtn").disabled = idx === 0;
+    document.getElementById("kellerNextBtn").textContent = isLast ? "Liste anzeigen ✓" : "Weiter ›";
   }
 
   function buildKellerExportText() {
@@ -890,7 +988,8 @@
     if (!confirm("Kellerliste wirklich zurücksetzen?")) return;
     kellerDrinks = makeEmptyKellerDrinks();
     kellerChecklist = [];
-    renderKellerList();
+    kellerIndex = 0;
+    renderKellerStage();
     renderKellerChecklist();
     showToast("Kellerliste zurückgesetzt ✅");
   });
@@ -900,7 +999,20 @@
     showToast("Kellerliste kopiert ✅");
   });
 
-  renderKellerList();
+  document.getElementById("kellerPrevBtn").addEventListener("click", () => {
+    gotoKellerIndex(kellerIndex - 1);
+  });
+
+  document.getElementById("kellerNextBtn").addEventListener("click", () => {
+    if (kellerIndex === kellerDrinks.length - 1) {
+      document.getElementById("createKellerListBtn").click();
+      document.getElementById("kellerSummary").scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    gotoKellerIndex(kellerIndex + 1);
+  });
+
+  renderKellerStage();
   renderKellerChecklist();
 
   // ---------- Tabs ----------
@@ -910,6 +1022,11 @@
       document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
       tab.classList.add("active");
       document.getElementById(`view-${tab.dataset.tab}`).classList.add("active");
+
+      if (tab.dataset.tab === "keller") {
+        const input = document.querySelector("#kellerStage .qtyInputBig");
+        if (input) input.focus();
+      }
     });
   });
 </script>
