@@ -185,14 +185,16 @@
 
     /* ---------- Kellerliste ---------- */
 
-    /* Flashcard-style browsing: one drink at a time, swipe or use the nav buttons */
+    /* Flashcard-style browsing: one drink at a time, swipe left/right.
+       Nav sits above the card on purpose, away from where the keyboard's
+       accessory bar appears once the qty field is focused. */
     .flashHeader{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px;}
     .progressBar{height:6px; background:rgba(148,163,184,.15); border-radius:999px; overflow:hidden; margin-bottom:14px;}
     .progressFill{height:100%; background:#22c55e; transition:width .2s ease;}
 
     #kellerStage{position:relative; min-height:1px;}
 
-    .flashNav{display:flex; gap:10px; margin-top:14px;}
+    .flashNav{display:flex; gap:10px; margin-bottom:14px;}
     .flashNav .btn{flex:1; min-height:50px; font-size:15px;}
     .flashNav .btn:disabled{opacity:.35; cursor:default;}
 
@@ -207,15 +209,13 @@
       user-select:none;
     }
 
-    /* Bank-transfer layout: small label on top, huge value in the middle,
+    /* Bank-transfer layout: label on top, huge value in the middle,
        smaller choice buttons at the bottom */
     .drinkName{
-      font-size:13px;
-      font-weight:700;
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.4px;
-      margin-bottom:8px;
+      font-size:20px;
+      font-weight:800;
+      color:#e5e7eb;
+      margin-bottom:10px;
     }
 
     .qtyInputBig{
@@ -277,6 +277,46 @@
       transition: background .15s ease, border-color .15s ease;
     }
     .checkCircle.checked{background:#22c55e; border-color:#22c55e}
+
+    /* Checklist opens as its own bottom-sheet popup, separate from the
+       flashcards, so the two never get mixed up while scrolling */
+    .modalOverlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.6);
+      display:none;
+      align-items:flex-end;
+      justify-content:center;
+      z-index:1000;
+    }
+    .modalOverlay.open{display:flex;}
+    .modalSheet{
+      width:100%;
+      max-width:560px;
+      max-height:80vh;
+      overflow-y:auto;
+      background:var(--card);
+      border:1px solid rgba(36,48,68,.95);
+      border-radius:20px 20px 0 0;
+      padding:18px 16px 26px;
+      box-shadow: 0 -10px 40px rgba(0,0,0,.5);
+      animation: modalSlideUp .22s ease;
+    }
+    @keyframes modalSlideUp{
+      from{ transform:translateY(24px); opacity:0; }
+      to{ transform:translateY(0); opacity:1; }
+    }
+    .modalHeader{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+    .modalClose{
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      border:1px solid rgba(148,163,184,.25);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      font-size:15px;
+      cursor:pointer;
+    }
   </style>
 </head>
 
@@ -398,9 +438,12 @@
     <header>
       <div>
         <h1>Kellerliste</h1>
-        <div class="sub">Fehlende Getränke nach Schichtende — antippen, Menge eintippen, fertig.</div>
+        <div class="sub">Fehlende Getränke nach Schichtende — antippen, Menge eintippen, nach links wischen.</div>
       </div>
-      <button class="btn danger" id="resetKellerBtn">Reset</button>
+      <div style="display:flex; gap:8px">
+        <button class="btn primary" id="openKellerListBtn">📋 Liste</button>
+        <button class="btn danger" id="resetKellerBtn">Reset</button>
+      </div>
     </header>
 
     <div class="card">
@@ -410,24 +453,28 @@
       </div>
       <div class="progressBar"><div class="progressFill" id="kellerProgressFill"></div></div>
 
-      <div id="kellerStage"></div>
-
+      <!-- Above the card on purpose: stays clear of the keyboard's accessory bar -->
       <div class="flashNav">
         <button class="btn" id="kellerPrevBtn">‹ Zurück</button>
-        <button class="btn primary" id="kellerNextBtn">Weiter ›</button>
       </div>
-    </div>
 
-    <div class="card" style="margin-top:12px">
-      <h2>Checkliste</h2>
-      <div class="muted small">Aus der Getränkeliste oben erstellt — antippen zum Abhaken.</div>
-      <div class="controls" style="margin-top:10px">
-        <button class="btn primary" id="createKellerListBtn">Liste erstellen</button>
-        <button class="btn right" id="copyKellerBtn">Export (WhatsApp)</button>
-      </div>
-      <div id="kellerSummary" style="margin-top:10px"></div>
+      <div id="kellerStage"></div>
     </div>
   </section>
+</div>
+
+<div class="modalOverlay" id="kellerModalOverlay">
+  <div class="modalSheet">
+    <div class="modalHeader">
+      <h2 style="margin:0">Checkliste</h2>
+      <button class="modalClose" id="closeKellerModalBtn" type="button">✕</button>
+    </div>
+    <div class="muted small">Antippen zum Abhaken, sobald es oben steht.</div>
+    <div id="kellerSummary" style="margin-top:10px"></div>
+    <div class="controls" style="margin-top:14px">
+      <button class="btn primary right" id="copyKellerBtn">Export (WhatsApp)</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast">Kopiert ✅</div>
@@ -773,8 +820,9 @@
 
   // ---------- Kellerliste (Getränke-Inventar) ----------
   const KELLER_DRINK_NAMES = [
-    "Kellerbier", "Helles", "Radler", "Weißbier", "Cola", "Cola Zero", "Fanta",
-    "Sprite", "Spezi", "Wasser still", "Wasser sprudel", "Apfelschorle",
+    "Kellerbier", "Helles", "Radler", "Weißbier",
+    "Pepsi groß", "Pepsi klein", "Pepsi klein Zero", "Mirinda",
+    "Fanta", "Sprite", "Spezi", "Wasser still", "Wasser sprudel", "Apfelschorle",
     "Red Bull", "Tonic Water", "Gin", "Vodka", "Rum"
   ];
   const UNITS = ["Flaschen", "Kisten"];
@@ -944,11 +992,14 @@
       qtyInput.focus();
     });
 
+    const isLast = idx === kellerDrinks.length - 1;
+
     attachSwipe(
       card,
       qtyInput,
       () => gotoKellerIndex(idx - 1),
-      () => gotoKellerIndex(idx + 1)
+      // Swiping past the last drink opens the checklist instead of going nowhere
+      isLast ? openKellerChecklist : () => gotoKellerIndex(idx + 1)
     );
 
     stage.appendChild(card);
@@ -957,12 +1008,10 @@
       qtyInput.focus();
     }
 
-    const isLast = idx === kellerDrinks.length - 1;
     document.getElementById("kellerProgressText").textContent = `${idx + 1} / ${kellerDrinks.length}`;
     document.getElementById("kellerProgressFill").style.width =
       `${((idx + 1) / kellerDrinks.length) * 100}%`;
     document.getElementById("kellerPrevBtn").disabled = idx === 0;
-    document.getElementById("kellerNextBtn").textContent = isLast ? "Liste anzeigen ✓" : "Weiter ›";
   }
 
   function buildKellerExportText() {
@@ -977,11 +1026,23 @@
     return lines.join("\n");
   }
 
-  document.getElementById("createKellerListBtn").addEventListener("click", () => {
+  // The checklist opens as its own popup, kept separate from the flashcards
+  function openKellerChecklist() {
     kellerChecklist = kellerDrinks
       .filter((d) => Number(d.qty) > 0)
       .map((d) => ({ name: d.name, qty: d.qty, unit: d.unit }));
     renderKellerChecklist();
+    document.getElementById("kellerModalOverlay").classList.add("open");
+  }
+
+  function closeKellerChecklist() {
+    document.getElementById("kellerModalOverlay").classList.remove("open");
+  }
+
+  document.getElementById("openKellerListBtn").addEventListener("click", openKellerChecklist);
+  document.getElementById("closeKellerModalBtn").addEventListener("click", closeKellerChecklist);
+  document.getElementById("kellerModalOverlay").addEventListener("click", (e) => {
+    if (e.target.id === "kellerModalOverlay") closeKellerChecklist();
   });
 
   document.getElementById("resetKellerBtn").addEventListener("click", () => {
@@ -989,6 +1050,7 @@
     kellerDrinks = makeEmptyKellerDrinks();
     kellerChecklist = [];
     kellerIndex = 0;
+    closeKellerChecklist();
     renderKellerStage();
     renderKellerChecklist();
     showToast("Kellerliste zurückgesetzt ✅");
@@ -1001,15 +1063,6 @@
 
   document.getElementById("kellerPrevBtn").addEventListener("click", () => {
     gotoKellerIndex(kellerIndex - 1);
-  });
-
-  document.getElementById("kellerNextBtn").addEventListener("click", () => {
-    if (kellerIndex === kellerDrinks.length - 1) {
-      document.getElementById("createKellerListBtn").click();
-      document.getElementById("kellerSummary").scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    gotoKellerIndex(kellerIndex + 1);
   });
 
   renderKellerStage();
