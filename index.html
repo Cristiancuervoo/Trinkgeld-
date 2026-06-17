@@ -235,9 +235,16 @@
     }
     .unitBtn.active{background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.45); color:#86efac}
 
-    /* Summary: tap the circle once the bottles/crates are upstairs to clear the item */
-    .summaryRow{display:flex; align-items:center; gap:10px; padding:8px 0;}
+    /* Checklist: tap the circle once an item is upstairs, like a to-do app */
+    .summaryRow{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 0;
+      transition: opacity .2s ease;
+    }
     .summaryRow + .summaryRow{border-top:1px dashed rgba(148,163,184,.18)}
+    .summaryRow.done{opacity:0}
     .summaryName{flex:1}
     .summaryAmount{font-weight:800}
 
@@ -250,8 +257,11 @@
       background:transparent;
       cursor:pointer;
       padding:0;
+      color:#fff;
+      font-weight:800;
+      transition: background .15s ease, border-color .15s ease;
     }
-    .checkCircle:active{background:rgba(34,197,94,.3); border-color:#22c55e}
+    .checkCircle.checked{background:#22c55e; border-color:#22c55e}
   </style>
 </head>
 
@@ -384,11 +394,13 @@
     </div>
 
     <div class="card" style="margin-top:12px">
-      <h2>Zusammenfassung</h2>
-      <div id="kellerSummary"></div>
-      <div class="controls">
-        <button class="btn primary right" id="copyKellerBtn">Export (WhatsApp)</button>
+      <h2>Checkliste</h2>
+      <div class="muted small">Aus der Getränkeliste oben erstellt — antippen zum Abhaken.</div>
+      <div class="controls" style="margin-top:10px">
+        <button class="btn primary" id="createKellerListBtn">Liste erstellen</button>
+        <button class="btn right" id="copyKellerBtn">Export (WhatsApp)</button>
       </div>
+      <div id="kellerSummary" style="margin-top:10px"></div>
     </div>
   </section>
 </div>
@@ -747,43 +759,49 @@
 
   let kellerDrinks = makeEmptyKellerDrinks();
 
-  function renderKellerSummary() {
+  // The checklist is a snapshot of kellerDrinks, created on demand via the
+  // "Liste erstellen" button. It's independent from the big list so ticking
+  // an item off (like a to-do app) doesn't fight with ongoing edits above.
+  let kellerChecklist = [];
+
+  function renderKellerChecklist() {
     const box = document.getElementById("kellerSummary");
     box.innerHTML = "";
 
-    const missingCount = kellerDrinks.filter((d) => Number(d.qty) > 0).length;
-
-    if (missingCount === 0) {
+    if (kellerChecklist.length === 0) {
       const empty = document.createElement("div");
       empty.className = "muted small";
-      empty.textContent = "Keine fehlenden Getränke eingetragen.";
+      empty.textContent = "Liste leer — oben Mengen eintragen und „Liste erstellen“ tippen.";
       box.appendChild(empty);
       return;
     }
 
-    kellerDrinks.forEach((d, idx) => {
-      if (Number(d.qty) <= 0) return;
-
+    kellerChecklist.forEach((item) => {
       const row = document.createElement("div");
       row.className = "summaryRow";
 
-      // Tap once an item is upstairs to clear it from the small to-do list
+      // Tap the circle once an item is upstairs — it checks off and disappears
       const check = document.createElement("button");
       check.type = "button";
       check.className = "checkCircle";
       check.title = "Erledigt";
       check.addEventListener("click", () => {
-        kellerDrinks[idx].qty = "";
-        renderKellerList();
+        check.classList.add("checked");
+        check.textContent = "✓";
+        row.classList.add("done");
+        setTimeout(() => {
+          kellerChecklist = kellerChecklist.filter((x) => x !== item);
+          renderKellerChecklist();
+        }, 220);
       });
 
       const name = document.createElement("span");
       name.className = "summaryName";
-      name.textContent = d.name;
+      name.textContent = item.name;
 
       const amount = document.createElement("span");
       amount.className = "summaryAmount";
-      amount.textContent = `${d.qty} ${d.unit}`;
+      amount.textContent = `${item.qty} ${item.unit}`;
 
       row.appendChild(check);
       row.appendChild(name);
@@ -815,7 +833,6 @@
       qtyInput.addEventListener("input", (e) => {
         e.target.value = e.target.value.replace(/[^0-9]/g, "");
         kellerDrinks[idx].qty = e.target.value;
-        renderKellerSummary();
       });
       // Selecting existing text lets the user just type over it
       qtyInput.addEventListener("focus", (e) => e.target.select());
@@ -832,7 +849,6 @@
           kellerDrinks[idx].unit = unit;
           unitToggle.querySelectorAll(".unitBtn").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
-          renderKellerSummary();
         });
         unitToggle.appendChild(btn);
       });
@@ -849,27 +865,33 @@
 
       box.appendChild(card);
     });
-
-    renderKellerSummary();
   }
 
   function buildKellerExportText() {
-    const missing = kellerDrinks.filter((d) => Number(d.qty) > 0);
     const lines = ["Kellerliste"];
 
-    if (missing.length === 0) {
+    if (kellerChecklist.length === 0) {
       lines.push("Keine fehlenden Getränke.");
     } else {
-      missing.forEach((d) => lines.push(`${d.name}: ${d.qty} ${d.unit}`));
+      kellerChecklist.forEach((d) => lines.push(`${d.name}: ${d.qty} ${d.unit}`));
     }
 
     return lines.join("\n");
   }
 
+  document.getElementById("createKellerListBtn").addEventListener("click", () => {
+    kellerChecklist = kellerDrinks
+      .filter((d) => Number(d.qty) > 0)
+      .map((d) => ({ name: d.name, qty: d.qty, unit: d.unit }));
+    renderKellerChecklist();
+  });
+
   document.getElementById("resetKellerBtn").addEventListener("click", () => {
     if (!confirm("Kellerliste wirklich zurücksetzen?")) return;
     kellerDrinks = makeEmptyKellerDrinks();
+    kellerChecklist = [];
     renderKellerList();
+    renderKellerChecklist();
     showToast("Kellerliste zurückgesetzt ✅");
   });
 
@@ -879,6 +901,7 @@
   });
 
   renderKellerList();
+  renderKellerChecklist();
 
   // ---------- Tabs ----------
   document.querySelectorAll(".tab").forEach((tab) => {
