@@ -714,7 +714,20 @@
   });
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+    navigator.serviceWorker.register("./sw.js").then((reg) => {
+      // The browser only checks for a new sw.js every ~24h by default;
+      // force a check on every load so updates land the same day.
+      reg.update();
+    }).catch(()=>{});
+
+    // Once a new service worker takes control, this page's HTML/JS is
+    // already stale — reload once to pick up the new version automatically.
+    let reloadedForUpdate = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloadedForUpdate) return;
+      reloadedForUpdate = true;
+      window.location.reload();
+    });
   }
 
   renderAbgaben();
