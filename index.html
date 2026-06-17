@@ -230,13 +230,12 @@
       border:1px solid rgba(148,163,184,.25);
       color:var(--text);
       outline:none;
-      margin-bottom:10px;
       -webkit-text-size-adjust: 100%;
       user-select:text;
     }
     .qtyInputBig::placeholder{color:rgba(156,163,175,.45)}
 
-    .unitToggle{display:flex; gap:8px;}
+    .unitToggle{display:flex; gap:8px; margin-bottom:10px;}
     .unitBtn{
       flex:1;
       min-height:40px;
@@ -1020,8 +1019,8 @@
     });
 
     card.appendChild(name);
-    card.appendChild(qtyInput);
     card.appendChild(unitToggle);
+    card.appendChild(qtyInput);
 
     // Tapping anywhere on the card focuses the qty field, opening the numeric keyboard
     card.addEventListener("click", (e) => {
